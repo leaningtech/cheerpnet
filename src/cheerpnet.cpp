@@ -96,6 +96,15 @@ namespace [[cheerp::genericjs]]
 }
 namespace [[cheerp::genericjs]] cheerpnet
 {
+	constexpr Address baseAddr = 0x0a00001;
+	static Address idx_to_addr(int idx)
+	{
+		return idx + baseAddr;
+	}
+	static int addr_to_idx(Address addr)
+	{
+		return addr - baseAddr;
+	}
 	static bool valid_fd(SocketFD fd)
 	{
 		return fd >= 0 && fd < sockets.size();
@@ -106,14 +115,14 @@ namespace [[cheerp::genericjs]] cheerpnet
 	}
 	static bool valid_addr(Address a)
 	{
-		return a >= 0 && a < addrToKeys.size() && addrToKeys[a] != nullptr;
+		int i = addr_to_idx(a);
+		return i >= 0 && i < addrToKeys.size() && addrToKeys[i] != nullptr;
 	}
 	void init(client::FirebaseConfig* fb, client::RTCConfiguration* ice)
 	{
 		client::firebase.initializeApp(fb);
 		iceConf = ice;
 		database = client::firebase.database();
-		addrToKeys.pushBack(nullptr);
 	}
 	client::String* local_key()
 	{
@@ -216,7 +225,7 @@ namespace [[cheerp::genericjs]] cheerpnet
 			return -1;
 		if (!valid_addr(srv_addr))
 			return -1;
-		client::String* peerKey = addrToKeys[srv_addr];
+		client::String* peerKey = addrToKeys[addr_to_idx(srv_addr)];
 		database->ref("/peers")->child(peerKey)
 			->once("value")
 			->then(cheerp::Callback([fd, cb, srv_port, peerKey](client::FirebaseSnapshot* snapshot)
@@ -358,9 +367,9 @@ namespace [[cheerp::genericjs]] cheerpnet
 		for (int i = 0; i < addrToKeys.size(); ++i)
 		{
 			if (addrToKeys[i] == key)
-				return i;
+				return idx_to_addr(i);
 		}
 		addrToKeys.pushBack(key);
-		return addrToKeys.size()-1;
+		return idx_to_addr(addrToKeys.size()-1);
 	}
 }
