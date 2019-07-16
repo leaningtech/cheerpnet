@@ -39,10 +39,7 @@ public:
 			else
 			{
 				capacity = capacity * 3 / 2;
-				T* newData = (T*)malloc(capacity*sizeof(T));
-				memcpy(newData, data, length*sizeof(T));
-				free(data);
-				data = newData;
+				data = (T*)realloc(data, capacity*sizeof(T));
 			}
 		}
 		assert(capacity > length);
