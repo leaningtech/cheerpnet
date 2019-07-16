@@ -1,0 +1,20 @@
+<!doctype html>
+
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Cheerpnet test</title>
+</head>
+  <input type="text" id="key"></input>
+<body>
+<script src="https://www.gstatic.com/firebasejs/6.2.4/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/6.2.4/firebase-database.js"></script>
+
+<script src="client.js"></script>
+
+<script>
+  let k = document.getElementById("key");
+  k.onkeypress = () => run(k.value);
+</script>
+</body>
+</html>
