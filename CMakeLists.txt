@@ -21,6 +21,7 @@ ADD_LIBRARY(cheerpnet STATIC ${LIBSOURCES})
 
 INSTALL(TARGETS cheerpnet DESTINATION "lib")
 INSTALL(FILES "include/cheerpnet.h" DESTINATION "include/client/cheerp")
+INSTALL(FILES "include/firebase.h" DESTINATION "include/client/cheerp")
 
 ADD_EXECUTABLE(client ${CLIENTSOURCES})
 ADD_EXECUTABLE(server ${SERVERSOURCES})

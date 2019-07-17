@@ -30,20 +30,7 @@ __attribute__((cheerp_genericjs)) int cheerpNetClose(int fd);
 #ifdef __cplusplus
 
 #include <cheerp/client.h>
-
-namespace [[cheerp::genericjs]] client
-{
-	struct FirebaseConfig
-	{
-		void set_apiKey(const String&);
-		void set_authDomain(const String&);
-		void set_databaseURL(const String&);
-		void set_projectId(const String&);
-		void set_storageBucket(const String&);
-		void set_messagingSenderId(const String&);
-		void set_appId(const String&);
-	};
-}
+#include "firebase.h"
 
 namespace [[cheerp::genericjs]] cheerpnet
 {
