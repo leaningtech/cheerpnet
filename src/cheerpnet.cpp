@@ -45,12 +45,6 @@ namespace [[cheerp::genericjs]] client
 		cheerpnet::Port get_port();
 		void set_port(cheerpnet::Port);
 	};
-
-	struct HandshakeData
-	{
-		String* get_str();
-		RTCPeerConnection* get_conn();
-	};
 	struct DataChannel: public EventTarget
 	{
 		void send(String*);
