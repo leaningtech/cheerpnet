@@ -87,7 +87,7 @@ namespace [[cheerp::genericjs]]
 		cheerpnet::Port port{0};
 		client::FirebaseReference* portRef{nullptr};
 		utils::Vector<client::Uint8Array*> readQueue{};
-		cheerpnet::RecvCallback recvCb{nullptr};
+		cheerpnet::Callback recvCb{nullptr};
 	};
 	client::RTCConfiguration* iceConf = nullptr;
 	utils::Vector<SocketData> sockets;
@@ -160,29 +160,29 @@ namespace [[cheerp::genericjs]] cheerpnet
 		asm("%1.createDataChannel('chan', {ordered: false, maxRetransmits: 0})" : "=r"(chan) : "r"(conn));
 		return chan;
 	}
-	static void connect_handshake(SocketFD fd, ConnectCallback cb)
+	static void connect_handshake(Connection* conn, Callback cb)
 	{
-		SocketData& s = sockets[fd];
+		SocketData& s = sockets[conn->fd];
 		s.state = SocketState::CONNECTING;
 		s.conn = new client::RTCPeerConnection(iceConf);
 		s.channel = getDataChannel(s.conn);
 		s.channel->set_binaryType("arraybuffer");
-		s.channel->addEventListener("message", cheerp::Callback([fd](client::MessageEvent* e)
+		s.channel->addEventListener("message", cheerp::Callback([conn](client::MessageEvent* e)
 		{
-			SocketData& s = sockets[fd];
+			SocketData& s = sockets[conn->fd];
 			client::ArrayBuffer* data = (client::ArrayBuffer*)e->get_data();
 			s.readQueue.pushBack(new client::Uint8Array(data));
 			if (s.recvCb != nullptr)
-				reinterpret_cast<void(*)(SocketFD)>(s.recvCb)(fd);
+				reinterpret_cast<void(*)(Connection*)>(s.recvCb)(conn);
 		}));
-		s.conn->createOffer()->then(cheerp::Callback([fd, cb](client::RTCSessionDescriptionInit* offer)
+		s.conn->createOffer()->then(cheerp::Callback([conn, cb](client::RTCSessionDescriptionInit* offer)
 		{
-			SocketData& s = sockets[fd];
+			SocketData& s = sockets[conn->fd];
 			auto* candidates = new client::TArray<client::RTCIceCandidateInit>();
 			s.conn->setLocalDescription(offer);
-			s.conn->set_onicecandidate(cheerp::Callback([fd, offer, candidates, cb](client::RTCPeerConnectionIceEvent* e)
+			s.conn->set_onicecandidate(cheerp::Callback([conn, offer, candidates, cb](client::RTCPeerConnectionIceEvent* e)
 			{
-				SocketData& s = sockets[fd];
+				SocketData& s = sockets[conn->fd];
 				if (e->get_candidate() != nullptr)
 				{
 					candidates->push(e->get_candidate()->toJSON());
@@ -190,12 +190,15 @@ namespace [[cheerp::genericjs]] cheerpnet
 				}
 				auto* incomingRef = s.portRef->child("incoming")->push();
 				client::String* accept = new client::String();
-				incomingRef->set(CHEERP_OBJECT(offer, candidates, accept));
+				static Port nextPort = 12000; // TODO keep an array of used ports
+				Port port = conn->local_port != 0 ? conn->local_port : nextPort++;
+				conn->local_port = port;
+				incomingRef->set(CHEERP_OBJECT(offer, candidates, port, accept));
 				incomingRef
 					->child("accept")
-					->on("value", cheerp::Callback([fd, incomingRef, cb](client::FirebaseSnapshot* snapshot)
+					->on("value", cheerp::Callback([conn, incomingRef, cb](client::FirebaseSnapshot* snapshot)
 				{
-					SocketData& s = sockets[fd];
+					SocketData& s = sockets[conn->fd];
 					auto* obj = snapshot->val<client::Object>();
 					if (obj == new client::String())
 						return;
@@ -209,26 +212,26 @@ namespace [[cheerp::genericjs]] cheerpnet
 					}
 					s.state = SocketState::READY;
 					incomingRef->remove();
-					s.channel->set_onopen(cheerp::Callback([fd, cb]()
+					s.channel->set_onopen(cheerp::Callback([conn, cb]()
 					{
-						reinterpret_cast<void(*)(SocketFD)>(cb)(fd);
+						reinterpret_cast<void(*)(Connection*)>(cb)(conn);
 					}));
 				}));
 			}));
 		}));
 	}
-	int connect(SocketFD fd, Address srv_addr, Port srv_port, ConnectCallback cb)
+	int connect(Connection* conn, Callback cb)
 	{
 		if (database == nullptr)
 			return -1;
-		if (!valid_fd(fd))
+		if (!valid_fd(conn->fd))
 			return -1;
-		if (!valid_addr(srv_addr))
+		if (!valid_addr(conn->remote_addr))
 			return -1;
-		client::String* peerKey = addrToKeys[addr_to_idx(srv_addr)];
+		client::String* peerKey = addrToKeys[addr_to_idx(conn->remote_addr)];
 		database->ref("/peers")->child(peerKey)
 			->once("value")
-			->then(cheerp::Callback([fd, cb, srv_port, peerKey](client::FirebaseSnapshot* snapshot)
+			->then(cheerp::Callback([conn, cb, peerKey](client::FirebaseSnapshot* snapshot)
 		{
 			auto* obj = snapshot->val<client::Object>();
 			auto* keys = (client::TArray<client::String>*)client::Object::keys(obj);
@@ -236,20 +239,20 @@ namespace [[cheerp::genericjs]] cheerpnet
 			{
 				client::String* key = (*keys)[i];
 				auto* value = (client::FirebasePortData*)(*obj)[*key];
-				if (value->get_port() == srv_port)
+				if (value->get_port() == conn->remote_port)
 				{
-					sockets[fd].peerKey = peerKey;
-					sockets[fd].portRef = database->ref("/peers")->child(peerKey)->child(key);
-					connect_handshake(fd, cb);
+					sockets[conn->fd].peerKey = peerKey;
+					sockets[conn->fd].portRef = database->ref("/peers")->child(peerKey)->child(key);
+					connect_handshake(conn, cb);
 					return;
 				}
 			}
-			reinterpret_cast<void(*)(SocketFD)>(cb)(-1);
+			reinterpret_cast<void(*)(Connection*)>(cb)(nullptr);
 		}));
 		return 0;
 	}
 
-	int accept(SocketFD fd, AcceptCallback cb)
+	int accept(SocketFD fd, Callback cb)
 	{
 		if (database == nullptr)
 			return -1;
@@ -259,32 +262,38 @@ namespace [[cheerp::genericjs]] cheerpnet
 		if (listener.state != SocketState::LISTENING)
 			return -1;
 		listener.portRef->child("incoming")
-			->on("child_added", cheerp::Callback([&listener, cb, fd](client::FirebaseSnapshot* snapshot)
+			->on("child_added", cheerp::Callback([fd, cb](client::FirebaseSnapshot* snapshot)
 		{
+			auto& listener = sockets[fd];
 			auto* incomingRef = snapshot->get_ref();
 			SocketFD newFd = socket();
 			SocketData& news = sockets[newFd];
 			auto* obj = snapshot->val<client::Object>();
 			auto* offer = static_cast<client::RTCSessionDescriptionInit*>((*obj)["offer"]);
+			Port clientPort = double(*(*obj)["port"]);
 			auto* candidates = static_cast<client::TArray<client::RTCIceCandidateInit>*>((*obj)["candidates"]);
 			news.state = SocketState::CONNECTING;
 			news.portRef = listener.portRef;
+			news.port = listener.port;
 			news.conn = new client::RTCPeerConnection(iceConf);
 			news.conn->setRemoteDescription(offer);
+			Address clientAddr = idx_to_addr(addrToKeys.size());
+			addrToKeys.pushBack(new client::String("client")); // TODO use some real key
+			Connection* newConn = new Connection{newFd, clientAddr, clientPort, news.port};
 			for (int i = 0; i < candidates->get_length(); ++i)
 			{
 				news.conn->addIceCandidate((*candidates)[i]);
 			}
 			news.conn->createAnswer()
-				->then(cheerp::Callback([newFd, incomingRef, cb](client::RTCSessionDescriptionInit* answer)
+				->then(cheerp::Callback([newConn, incomingRef, cb](client::RTCSessionDescriptionInit* answer)
 			{
-				SocketData& news = sockets[newFd];
+				SocketData& news = sockets[newConn->fd];
 				auto* candidates = new client::TArray<client::RTCIceCandidateInit>();
 				news.conn->setLocalDescription(answer);
 
-				news.conn->set_onicecandidate(cheerp::Callback([newFd, answer, candidates, incomingRef, cb](client::RTCPeerConnectionIceEvent* e)
+				news.conn->set_onicecandidate(cheerp::Callback([newConn, answer, candidates, incomingRef, cb](client::RTCPeerConnectionIceEvent* e)
 				{
-					SocketData& news = sockets[newFd];
+					SocketData& news = sockets[newConn->fd];
 					if (e->get_candidate() != nullptr)
 					{
 						candidates->push(e->get_candidate()->toJSON());
@@ -292,22 +301,22 @@ namespace [[cheerp::genericjs]] cheerpnet
 					}
 					incomingRef->child("accept")->update(CHEERP_OBJECT(answer, candidates));
 
-					news.conn->addEventListener("datachannel", cheerp::Callback([newFd, cb](client::ChannelEvent* e)
+					news.conn->addEventListener("datachannel", cheerp::Callback([newConn, cb](client::ChannelEvent* e)
 					{
-						SocketData& news = sockets[newFd];
+						SocketData& news = sockets[newConn->fd];
 						news.channel = e->get_channel();
 						news.channel->set_binaryType("arraybuffer");
-						news.channel->addEventListener("message", cheerp::Callback([newFd](client::MessageEvent* e)
+						news.channel->addEventListener("message", cheerp::Callback([newConn](client::MessageEvent* e)
 						{
-							SocketData& news = sockets[newFd];
+							SocketData& news = sockets[newConn->fd];
 							client::ArrayBuffer* data = (client::ArrayBuffer*)e->get_data();
 							news.readQueue.pushBack(new client::Uint8Array(data));
 							if (news.recvCb != nullptr)
-								reinterpret_cast<void(*)(SocketFD)>(news.recvCb)(newFd);
+								reinterpret_cast<void(*)(Connection*)>(news.recvCb)(newConn);
 						}));
 						news.state = SocketState::READY;
 						// TODO addr and port
-						reinterpret_cast<void(*)(SocketFD, Address, Port)>(cb)(newFd, 1, 1);
+						reinterpret_cast<void(*)(Connection*)>(cb)(newConn);
 					}));
 
 				}));
@@ -339,7 +348,7 @@ namespace [[cheerp::genericjs]] cheerpnet
 
 		return toRead;
 	}
-	int recv_callback(SocketFD fd, RecvCallback cb)
+	int recv_callback(SocketFD fd, Callback cb)
 	{
 		if (!ready_fd(fd))
 			return -1;
