@@ -382,3 +382,49 @@ namespace [[cheerp::genericjs]] cheerpnet
 		return idx_to_addr(addrToKeys.size()-1);
 	}
 }
+
+extern "C"
+{
+
+[[cheerp::genericjs]]
+int cheerpNetListen(int fd, int port)
+{
+	return cheerpnet::listen(fd, port);
+}
+[[cheerp::genericjs]]
+int cheerpNetAccept(int fd, CheerpNetCallback cb)
+{
+	return cheerpnet::accept(fd, cheerp::Callback(cb));
+}
+[[cheerp::genericjs]]
+int cheerpNetConnect(CheerpNetConnection* conn, CheerpNetCallback cb)
+{
+	return cheerpnet::connect(conn, cheerp::Callback(cb));
+}
+[[cheerp::genericjs]]
+int cheerpNetSend(int fd, uint8_t* buf, int len)
+{
+	return cheerpnet::send(fd, buf, len);
+}
+[[cheerp::genericjs]]
+int cheerpNetRecv(int fd, uint8_t* buf, int len)
+{
+	return cheerpnet::recv(fd, buf, len);
+}
+[[cheerp::genericjs]]
+int cheerpNetRecvCallback(int fd, CheerpNetCallback cb)
+{
+	return cheerpnet::recv_callback(fd, cheerp::Callback(cb));
+}
+[[cheerp::genericjs]]
+int cheerpNetSocket()
+{
+	return cheerpnet::socket();
+}
+[[cheerp::genericjs]]
+int cheerpNetClose(int fd)
+{
+	return cheerpnet::close(fd);
+}
+
+}
