@@ -5,23 +5,13 @@
 extern "C" {
 #endif //__cplusplus
 #include <stdint.h>
-struct CheerpNetConnection
+struct __attribute__((cheerp_genericjs)) CheerpNetAddrInfo
 {
-	int fd;
-	uint32_t remote_addr;
-	uint32_t remote_port;
-	uint32_t local_port;
+	uint32_t addr;
+	uint32_t port;
 };
 
-typedef void (*CheerpNetCallback)(CheerpNetConnection*);
-__attribute__((cheerp_genericjs)) int cheerpNetListen(int fd, int port);
-__attribute__((cheerp_genericjs)) int cheerpNetAccept(int fd, CheerpNetCallback cb);
-__attribute__((cheerp_genericjs)) int cheerpNetConnect(CheerpNetConnection* conn, CheerpNetCallback cb);
-__attribute__((cheerp_genericjs)) int cheerpNetSend(int fd, uint8_t* buf, int len);
-__attribute__((cheerp_genericjs)) int cheerpNetRecv(int fd, uint8_t* buf, int len);
-__attribute__((cheerp_genericjs)) int cheerpNetRecvCallback(int fd, CheerpNetCallback cb);
-__attribute__((cheerp_genericjs)) int cheerpNetSocket();
-__attribute__((cheerp_genericjs)) int cheerpNetClose(int fd);
+typedef void (*CheerpNetCallback)(int);
 
 #ifdef __cplusplus
 }
@@ -37,15 +27,13 @@ namespace [[cheerp::genericjs]] cheerpnet
 	using SocketFD = int;
 	using Address = uint32_t;
 	using Port = uint32_t;
-	using Connection = CheerpNetConnection;
-	// Listener signature: void(Connection* conn);
+	using AddrInfo = CheerpNetAddrInfo;
+	// Callback signature: void(SocketFD fd);
 	using Callback = client::EventListener*;
-	int listen(SocketFD fd, Port port);
-	int accept(SocketFD fd, Callback cb);
-	int connect(Connection* conn, Callback cb);
-	int send(SocketFD fd, uint8_t* buf, int len);
-	int recv(SocketFD fd, uint8_t* buf, int len);
-	int recv_callback(SocketFD fd, Callback cb);
+	int bind(SocketFD fd, AddrInfo* addr);
+	int sendto(SocketFD fd, uint8_t* buf, int len, AddrInfo* addr);
+	int recvfrom(SocketFD fd, uint8_t* buf, int len, AddrInfo* addr);
+	int recvCallback(Callback cb);
 	SocketFD socket();
 	int close(SocketFD fd);
 	Address resolve(client::String*);
