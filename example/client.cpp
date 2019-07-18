@@ -20,6 +20,7 @@ static void receive(cheerpnet::SocketFD fd)
 			return;
 		client::console.log("received : ",(char*)buf);
 		client::console.log("from ", srv_addr.addr, ":", srv_addr.port);
+		cheerpnet::close(fd);
 }
 [[cheerp::genericjs]] [[cheerp::jsexport]]
 extern "C" void run(client::String* key)

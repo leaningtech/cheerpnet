@@ -30,7 +30,10 @@ int main()
 	}));
 	cheerpnet::bind(fd, &addr);
 	client::console.log("key: ", cheerpnet::local_key());
+	client::window.addEventListener("beforeunload", cheerp::Callback([fd]()
+	{
+		cheerpnet::close(fd);
+	}));
 	client::console.log("exit main");
-
 	return 0;
 }
