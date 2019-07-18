@@ -14,7 +14,10 @@
 
 <script>
   let k = document.getElementById("key");
-  k.onkeypress = () => run(k.value);
+  k.onkeypress = (e) => {
+    if (e.keyCode === 13)
+      run(k.value);
+  }
 </script>
 </body>
 </html>
