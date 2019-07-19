@@ -57,14 +57,14 @@ namespace [[cheerp::genericjs]]
 	};
 	client::RTCConfiguration* iceConf = nullptr;
 	utils::Vector<SocketData> sockets;
-	client::TMap<cheerpnet::Port, int>* ports = new client::TMap<cheerpnet::Port, int>();
+	client::TMap<int, int>* ports = new client::TMap<int, int>();
 	utils::Vector<ConnectionData> connections;
 	cheerpnet::Callback recvCb{nullptr};
 	client::FirebaseDatabase* database = nullptr;
 }
 namespace [[cheerp::genericjs]] cheerpnet
 {
-	constexpr Address baseAddr = 0x0a00002;
+	constexpr Address baseAddr = 0x0a000002;
 	static Address idx_to_addr(int idx)
 	{
 		return idx + baseAddr;
@@ -269,6 +269,22 @@ namespace [[cheerp::genericjs]] cheerpnet
 		return 0;
 	}
 
+	static void publish_port(SocketData& s)
+	{
+		auto* key = local_key();
+		if (s.portRef == nullptr)
+			s.portRef = database->ref("/peers")->child(key)->child("ports")->push();
+		auto* portData = new client::FirebasePortData();
+		portData->set_port(s.port);
+		s.portRef->set(portData);
+	}
+	static void unpublish_port(SocketData& s)
+	{
+		if (s.portRef != nullptr)
+		{
+			s.portRef->remove();
+		}
+	}
 	int bind(SocketFD fd, AddrInfo* addr)
 	{
 		if (database == nullptr)
@@ -278,19 +294,13 @@ namespace [[cheerp::genericjs]] cheerpnet
 		if (addr->addr != 0 && addr->addr != baseAddr-1)
 			return -1;
 		SocketData& s = sockets[fd];
-		if (s.portRef != nullptr)
+		if (s.port != 0)
 		{
 			ports->delete_(s.port);
-			s.portRef->remove();
 		}
 		s.port = addr->port;
-		auto* key = local_key();
-		auto* portRef = database->ref("/peers")->child(key)->child("ports")->push();
-		auto* portData = new client::FirebasePortData();
-		portData->set_port(s.port);
-		portRef->set(portData);
-		s.portRef = portRef;
 		allocate_port(s);
+		publish_port(s);
 		listen_handshake();
 		return 0;
 	}
@@ -368,6 +378,7 @@ namespace [[cheerp::genericjs]] cheerpnet
 		if (s.portRef)
 			s.portRef->remove();
 		ports->delete_(s.port);
+		unpublish_port(s);
 		s.portRef = nullptr;
 		s.port = 0;
 		return 0;
@@ -383,10 +394,58 @@ namespace [[cheerp::genericjs]] cheerpnet
 		connections[connections.size()-1].peerKey = key;
 		return idx_to_addr(connections.size()-1);
 	}
+	client::String* reverseResolve(Address addr)
+	{
+		if (!valid_addr(addr))
+			return nullptr;
+		return connections[addr_to_idx(addr)].peerKey;
+	}
 }
 
 extern "C"
 {
+using namespace cheerpnet;
 
+[[cheerp::genericjs]]
+int cheerpNetBind(int fd, Address addr, Port port)
+{
+	AddrInfo info{addr, port};
+	return bind(fd, &info);
+}
+[[cheerp::genericjs]]
+int cheerpNetSendTo(int fd, uint8_t* buf, int len, Address addr, Port port)
+{
+	AddrInfo info{addr, port};
+	return sendto(fd, buf, len, &info);
+}
+[[cheerp::genericjs]]
+int cheerpNetRecvFrom(int fd, uint8_t* buf, int len, Address* addr, Port* port)
+{
+	AddrInfo info;
+	int ret = recvfrom(fd, buf, len, &info);
+	*addr = info.addr;
+	*port = info.port;
+	return ret;
+}
+[[cheerp::genericjs]]
+int cheerpNetRecvCallback(CheerpNetCallback cb)
+{
+	return recvCallback(cheerp::Callback(cb));
+}
+[[cheerp::genericjs]]
+uint32_t cheerpNetResolve(const char* name)
+{
+	return resolve(new client::String(name));
+}
+[[cheerp::genericjs]]
+int cheerpNetSocket()
+{
+	return socket();
+}
+[[cheerp::genericjs]]
+int cheerpNetClose(SocketFD fd)
+{
+	return close(fd);
+}
 
 }
