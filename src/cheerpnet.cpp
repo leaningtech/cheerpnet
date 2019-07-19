@@ -400,6 +400,21 @@ namespace [[cheerp::genericjs]] cheerpnet
 			return nullptr;
 		return connections[addr_to_idx(addr)].peerKey;
 	}
+	void cleanDatabase()
+	{
+		for (int i = 0; i < sockets.size(); ++i)
+		{
+			unpublish_port(sockets[i]);
+		}
+	}
+	void commitDatabase()
+	{
+		for (int i = 0; i < sockets.size(); ++i)
+		{
+			if (sockets[i].portRef != nullptr)
+				publish_port(sockets[i]);
+		}
+	}
 }
 
 extern "C"

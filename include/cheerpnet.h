@@ -47,6 +47,8 @@ namespace [[cheerp::genericjs]] cheerpnet
 	client::String* reverseResolve(Address addr);
 	client::String* local_key();
 	void init(client::FirebaseConfig* fb, client::RTCConfiguration* ice);
+	void cleanDatabase();
+	void commitDatabase();
 }
 
 #endif //__cplusplus
