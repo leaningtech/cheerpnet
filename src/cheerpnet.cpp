@@ -159,12 +159,11 @@ namespace [[cheerp::genericjs]] cheerpnet
 				client::ArrayBuffer* data = (client::ArrayBuffer*)e->get_data();
 				dispatch_packet(c, data);
 			}));
-			c.conn->createOffer()->then(cheerp::Callback([&c](client::RTCSessionDescription* o)
+			c.conn->createOffer()->then(cheerp::Callback([&c](client::RTCSessionDescriptionInit* o)
 			{
-				auto* offer = static_cast<client::RTCSessionDescriptionInit*>(o->toJSON());
 				auto* candidates = new client::TArray<client::RTCIceCandidateInit>();
-				c.conn->setLocalDescription(offer);
-				c.conn->set_onicecandidate(cheerp::Callback([&c, offer, candidates](client::RTCPeerConnectionIceEvent* e)
+				c.conn->setLocalDescription(o);
+				c.conn->set_onicecandidate(cheerp::Callback([&c, o, candidates](client::RTCPeerConnectionIceEvent* e)
 				{
 					if (e->get_candidate() != nullptr)
 					{
@@ -172,6 +171,7 @@ namespace [[cheerp::genericjs]] cheerpnet
 						return;
 					}
 					auto* incomingRef = database->ref("/peers")->child(c.peerKey)->child("incoming")->child(local_key());
+					auto* offer = client::JSON.stringify(o);
 					client::String* accept = new client::String();
 					incomingRef->set(CHEERP_OBJECT(offer, candidates, accept));
 					incomingRef
@@ -182,9 +182,10 @@ namespace [[cheerp::genericjs]] cheerpnet
 						if (obj == new client::String())
 							return;
 						incomingRef->child("accept")->off("value");
-						auto* answer = static_cast<client::RTCSessionDescriptionInit*>((*obj)["answer"]);
+						auto* answer = static_cast<client::String*>((*obj)["answer"]);
+						auto* a = static_cast<client::RTCSessionDescriptionInit*>(client::JSON.parse(*answer));
 						auto* candidates = static_cast<client::TArray<client::RTCIceCandidateInit>*>((*obj)["candidates"]);
-						c.conn->setRemoteDescription(answer);
+						c.conn->setRemoteDescription(a);
 						for (int i = 0; i < candidates->get_length(); ++i)
 						{
 							c.conn->addIceCandidate((*candidates)[i]);
@@ -220,29 +221,32 @@ namespace [[cheerp::genericjs]] cheerpnet
 			auto* incomingRef = snapshot->get_ref();
 			ConnectionData& c = *connections.pushBack(ConnectionData());
 			auto* obj = snapshot->val<client::Object>();
-			auto* offer = static_cast<client::RTCSessionDescriptionInit*>((*obj)["offer"]);
+
+			auto* offer = static_cast<client::String*>((*obj)["offer"]);
+			auto* o = static_cast<client::RTCSessionDescriptionInit*>(client::JSON.parse(*offer));
 			auto* candidates = static_cast<client::TArray<client::RTCIceCandidateInit>*>((*obj)["candidates"]);
 			c.peerKey = snapshot->get_key();
 			c.state = ConnectionState::CONNECTING;
 			c.conn = new client::RTCPeerConnection(iceConf);
-			c.conn->setRemoteDescription(offer);
+			c.conn->setRemoteDescription(o);
 			for (int i = 0; i < candidates->get_length(); ++i)
 			{
 				c.conn->addIceCandidate((*candidates)[i]);
 			}
 			c.conn->createAnswer()
-				->then(cheerp::Callback([&c, incomingRef](client::RTCSessionDescriptionInit* answer)
+				->then(cheerp::Callback([&c, incomingRef](client::RTCSessionDescriptionInit* a)
 			{
 				auto* candidates = new client::TArray<client::RTCIceCandidateInit>();
-				c.conn->setLocalDescription(answer);
+				c.conn->setLocalDescription(a);
 
-				c.conn->set_onicecandidate(cheerp::Callback([&c, answer, candidates, incomingRef](client::RTCPeerConnectionIceEvent* e)
+				c.conn->set_onicecandidate(cheerp::Callback([&c, a, candidates, incomingRef](client::RTCPeerConnectionIceEvent* e)
 				{
 					if (e->get_candidate() != nullptr)
 					{
 						candidates->push(e->get_candidate()->toJSON());
 						return;
 					}
+					auto* answer = client::JSON.stringify(a);
 					incomingRef->child("accept")->update(CHEERP_OBJECT(answer, candidates));
 
 					c.conn->addEventListener("datachannel", cheerp::Callback([&c](client::ChannelEvent* e)
