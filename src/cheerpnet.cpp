@@ -333,6 +333,7 @@ namespace [[cheerp::genericjs]] cheerpnet
 
 	int sendto(SocketFD fd, uint8_t* buf, int len, AddrInfo* addr)
 	{
+		assert(len < 16*1024);
 		if (!valid_fd(fd))
 			return -1;
 		if (!valid_addr(addr->addr))
