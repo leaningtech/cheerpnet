@@ -15,7 +15,6 @@ namespace [[cheerp::genericjs]] client
 		void send(String*);
 		void send(Uint8Array&);
 		void set_binaryType(const String&);
-		void set_onopen(client::EventListener*);
 	};
 	struct ChannelEvent: public Event
 	{
@@ -191,7 +190,7 @@ namespace [[cheerp::genericjs]] cheerpnet
 							c.conn->addIceCandidate((*candidates)[i]);
 						}
 						incomingRef->remove();
-						c.channel->set_onopen(cheerp::Callback([&c]()
+						c.channel->addEventListener("open", cheerp::Callback([&c]()
 						{
 							c.state = ConnectionState::READY;
 							// TODO do this more efficiently
@@ -258,13 +257,16 @@ namespace [[cheerp::genericjs]] cheerpnet
 							client::ArrayBuffer* data = (client::ArrayBuffer*)e->get_data();
 							dispatch_packet(c, data);
 						}));
-						c.state = ConnectionState::READY;
-						// TODO do this more efficiently
-						while (!c.outQueue.isEmpty())
+						c.channel->addEventListener("open", cheerp::Callback([&c]()
 						{
-							c.channel->send(*c.outQueue[0]);
-							c.outQueue.erase(&c.outQueue[0]);
-						}
+							c.state = ConnectionState::READY;
+							// TODO do this more efficiently
+							while (!c.outQueue.isEmpty())
+							{
+								c.channel->send(*c.outQueue[0]);
+								c.outQueue.erase(&c.outQueue[0]);
+							}
+						}));
 					}));
 
 				}));
