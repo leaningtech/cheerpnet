@@ -15,6 +15,7 @@ namespace [[cheerp::genericjs]] client
 		void send(String*);
 		void send(Uint8Array&);
 		void set_binaryType(const String&);
+		void close();
 	};
 	struct ChannelEvent: public Event
 	{
@@ -60,6 +61,11 @@ namespace [[cheerp::genericjs]]
 	utils::Vector<ConnectionData> connections;
 	cheerpnet::Callback recvCb{nullptr};
 	client::FirebaseDatabase* database = nullptr;
+
+	void catchPromise(client::Promise* p, client::EventListener* e)
+	{
+		asm("%0.catch(%1)" : : "r"(p), "r"(e));
+	}
 }
 namespace [[cheerp::genericjs]] cheerpnet
 {
@@ -113,7 +119,20 @@ namespace [[cheerp::genericjs]] cheerpnet
 		}
 		ports->set(s.port, &s - &sockets[0]);
 	}
-
+	static void close_connection(ConnectionData& c)
+	{
+		if (c.channel)
+		{
+			c.channel->close();
+			c.channel = nullptr;
+		}
+		if (c.conn)
+		{
+			c.conn->close();
+			c.conn = nullptr;
+		}
+		c.state = ConnectionState::INVALID;
+	}
 	static void dispatch_packet(ConnectionData& c, client::ArrayBuffer* data)
 	{
 		client::Uint8Array& buf = *(new client::Uint8Array(data));
@@ -187,7 +206,7 @@ namespace [[cheerp::genericjs]] cheerpnet
 						c.conn->setRemoteDescription(a);
 						for (int i = 0; i < candidates->get_length(); ++i)
 						{
-							c.conn->addIceCandidate((*candidates)[i]);
+							catchPromise(c.conn->addIceCandidate((*candidates)[i]), cheerp::Callback([](){}));
 						}
 						incomingRef->remove();
 						c.channel->addEventListener("open", cheerp::Callback([&c]()
@@ -230,7 +249,7 @@ namespace [[cheerp::genericjs]] cheerpnet
 			c.conn->setRemoteDescription(o);
 			for (int i = 0; i < candidates->get_length(); ++i)
 			{
-				c.conn->addIceCandidate((*candidates)[i]);
+				catchPromise(c.conn->addIceCandidate((*candidates)[i]), cheerp::Callback([](){}));
 			}
 			c.conn->createAnswer()
 				->then(cheerp::Callback([&c, incomingRef](client::RTCSessionDescriptionInit* a)
@@ -333,7 +352,11 @@ namespace [[cheerp::genericjs]] cheerpnet
 		if (c.state == ConnectionState::READY)
 		{
 			assert(c.channel != nullptr);
+			asm("try{");
 			c.channel->send(newBuf);
+			asm("}catch{");
+			close_connection(c);
+			asm("return -1;}");
 			return len;
 		}
 		if (c.state != ConnectionState::CONNECTING)
