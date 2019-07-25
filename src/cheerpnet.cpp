@@ -133,6 +133,15 @@ namespace [[cheerp::genericjs]] cheerpnet
 		}
 		c.state = ConnectionState::INVALID;
 	}
+	static void flush(ConnectionData& c)
+	{
+		// TODO do this more efficiently
+		while (!c.outQueue.isEmpty())
+		{
+			c.channel->send(*c.outQueue[0]);
+			c.outQueue.erase(&c.outQueue[0]);
+		}
+	}
 	static void dispatch_packet(ConnectionData& c, client::ArrayBuffer* data)
 	{
 		client::Uint8Array& buf = *(new client::Uint8Array(data));
@@ -212,12 +221,7 @@ namespace [[cheerp::genericjs]] cheerpnet
 						c.channel->addEventListener("open", cheerp::Callback([&c]()
 						{
 							c.state = ConnectionState::READY;
-							// TODO do this more efficiently
-							while (!c.outQueue.isEmpty())
-							{
-								c.channel->send(*c.outQueue[0]);
-								c.outQueue.erase(&c.outQueue[0]);
-							}
+							flush(c);
 						}));
 					}));
 				}));
@@ -279,12 +283,7 @@ namespace [[cheerp::genericjs]] cheerpnet
 						c.channel->addEventListener("open", cheerp::Callback([&c]()
 						{
 							c.state = ConnectionState::READY;
-							// TODO do this more efficiently
-							while (!c.outQueue.isEmpty())
-							{
-								c.channel->send(*c.outQueue[0]);
-								c.outQueue.erase(&c.outQueue[0]);
-							}
+							flush(c);
 						}));
 					}));
 
