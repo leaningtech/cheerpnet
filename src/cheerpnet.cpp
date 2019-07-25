@@ -61,6 +61,7 @@ namespace [[cheerp::genericjs]]
 	utils::Vector<ConnectionData> connections;
 	cheerpnet::Callback recvCb{nullptr};
 	client::FirebaseDatabase* database = nullptr;
+	static bool paused = false;
 
 	void catchPromise(client::Promise* p, client::EventListener* e)
 	{
@@ -153,7 +154,7 @@ namespace [[cheerp::genericjs]] cheerpnet
 			return;
 		SocketData& s = sockets[ports->get(local_port)];
 		s.inQueue.pushBack(IncomingPacket{addr, &buf});
-		if (recvCb != nullptr)
+		if (recvCb != nullptr && !paused)
 			reinterpret_cast<void(*)(void)>(recvCb)();
 	}
 
@@ -429,20 +430,25 @@ namespace [[cheerp::genericjs]] cheerpnet
 			return nullptr;
 		return connections[addr_to_idx(addr)].peerKey;
 	}
-	void cleanDatabase()
+	void suspend()
 	{
+		paused = true;
 		for (int i = 0; i < sockets.size(); ++i)
 		{
 			unpublish_port(sockets[i]);
 		}
 	}
-	void commitDatabase()
+	void resume()
 	{
+		paused = false;
 		for (int i = 0; i < sockets.size(); ++i)
 		{
 			if (sockets[i].portRef != nullptr)
 				publish_port(sockets[i]);
 		}
+		// TODO do it only if packets queued
+		if (recvCb)
+			reinterpret_cast<void(*)(void)>(recvCb)();
 	}
 }
 
