@@ -35,6 +35,6 @@ TARGET_LINK_LIBRARIES(client cheerpnet)
 TARGET_LINK_LIBRARIES(server cheerpnet)
 
 file(GENERATE OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/client.html
-	INPUT ${CMAKE_CURRENT_SOURCE_DIR}/client.html)
+	INPUT ${CMAKE_CURRENT_SOURCE_DIR}/example/client.html)
 file(GENERATE OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/server.html
-	INPUT ${CMAKE_CURRENT_SOURCE_DIR}/server.html)
+	INPUT ${CMAKE_CURRENT_SOURCE_DIR}/example/server.html)
