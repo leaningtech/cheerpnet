@@ -24,7 +24,7 @@ int main()
 	cheerpnet::init(config::firebase(), config::ice());
 	cheerpnet::SocketFD fd = cheerpnet::socket();
 	cheerpnet::AddrInfo addr { 0, 555};
-	cheerpnet::recvCallback(cheerp::Callback([fd]()
+	cheerpnet::recvCallback(cheerp::make_closure([fd]()
 	{
 		echo(fd);
 	}));

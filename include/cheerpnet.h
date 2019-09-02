@@ -36,7 +36,7 @@ namespace [[cheerp::genericjs]] cheerpnet
 		Port port;
 	};
 	// Callback signature: void(SocketFD fd);
-	using Callback = client::EventListener*;
+	using Callback = cheerp::Closure<void()>;
 	int bind(SocketFD fd, AddrInfo* addr);
 	int sendto(SocketFD fd, uint8_t* buf, int len, const AddrInfo* addr);
 	int recvfrom(SocketFD fd, uint8_t* buf, int len, AddrInfo* addr);

@@ -59,7 +59,7 @@ namespace [[cheerp::genericjs]]
 	utils::Vector<SocketData> sockets;
 	client::TMap<int, int>* ports = new client::TMap<int, int>();
 	utils::Vector<ConnectionData> connections;
-	cheerpnet::Callback recvCb{nullptr};
+	cheerpnet::Callback recvCb;
 	client::FirebaseDatabase* database = nullptr;
 	static bool paused = false;
 
@@ -154,8 +154,8 @@ namespace [[cheerp::genericjs]] cheerpnet
 			return;
 		SocketData& s = sockets[ports->get(local_port)];
 		s.inQueue.pushBack(IncomingPacket{addr, &buf});
-		if (recvCb != nullptr && !paused)
-			reinterpret_cast<void(*)(void)>(recvCb)();
+		if (recvCb && !paused)
+			recvCb();
 	}
 
 	static client::DataChannel* getDataChannel(client::RTCPeerConnection* conn)
@@ -391,7 +391,7 @@ namespace [[cheerp::genericjs]] cheerpnet
 	}
 	int recvCallback(Callback cb)
 	{
-		recvCb = cb;
+		recvCb = cheerp::move(cb);
 		return 0;
 	}
 	SocketFD socket()
@@ -448,7 +448,7 @@ namespace [[cheerp::genericjs]] cheerpnet
 		}
 		// TODO do it only if packets queued
 		if (recvCb)
-			reinterpret_cast<void(*)(void)>(recvCb)();
+			recvCb();
 	}
 }
 
@@ -480,7 +480,7 @@ int cheerpNetRecvFrom(int fd, uint8_t* buf, int len, Address* addr, Port* port)
 [[cheerp::genericjs]]
 int cheerpNetRecvCallback(CheerpNetCallback cb)
 {
-	return recvCallback(cheerp::Callback(cb));
+	return recvCallback(cb);
 }
 [[cheerp::genericjs]]
 uint32_t cheerpNetResolve(const char* name)

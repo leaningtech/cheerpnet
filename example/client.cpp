@@ -36,7 +36,7 @@ extern "C" void run(client::String* key)
 	cheerpnet::SocketFD fd = cheerpnet::socket();
 	const char msg[] = "hello webrtc!";
 	int len = sizeof(msg);
-	cheerpnet::recvCallback(cheerp::Callback([fd]()
+	cheerpnet::recvCallback(cheerp::make_closure([fd]()
 	{
 		receive(fd);
 	}));
