@@ -3,6 +3,19 @@
 
 #include <cheerp/client.h>
 
+#define errno (*__errno())
+[[cheerp::genericjs]]
+extern "C" int *__errno _PARAMS ((void));
+
+#define	EBADF 9		/* Bad file number */
+#define	EAGAIN 11	/* No more processes */
+#define ENETUNREACH 114		/* Network is unreachable */
+#define ENETDOWN 115		/* Network interface is not configured */
+#define EMSGSIZE 122		/* Message too long */
+#define EADDRNOTAVAIL 125	/* Address not available */
+#define EWOULDBLOCK EAGAIN	/* Operation would block */
+
+
 namespace [[cheerp::genericjs]] client
 {
 	struct FirebasePortData: public Object
@@ -313,11 +326,20 @@ namespace [[cheerp::genericjs]] cheerpnet
 	int bind(SocketFD fd, AddrInfo* addr)
 	{
 		if (database == nullptr)
+		{
+			errno=ENETDOWN;
 			return -1;
+		}
 		if (!valid_fd(fd))
+		{
+			errno=EBADF;
 			return -1;
+		}
 		if (addr->addr != 0 && addr->addr != baseAddr-1)
+		{
+			errno=EADDRNOTAVAIL;
 			return -1;
+		}
 		SocketData& s = sockets[fd];
 		if (s.port != 0)
 		{
@@ -333,11 +355,21 @@ namespace [[cheerp::genericjs]] cheerpnet
 
 	int sendto(SocketFD fd, uint8_t* buf, int len, const AddrInfo* addr)
 	{
-		assert(len < 16*1024);
+		if(len >= 16*1024)
+		{
+			errno=EMSGSIZE;
+			return -1;
+		}
 		if (!valid_fd(fd))
+		{
+			errno=EBADF;
 			return -1;
+		}
 		if (!valid_addr(addr->addr))
+		{
+			errno=ENETUNREACH;
 			return -1;
+		}
 		SocketData& s = sockets[fd];
 		ConnectionData& c = connections[addr_to_idx(addr->addr)];
 		allocate_port(s);
@@ -357,6 +389,7 @@ namespace [[cheerp::genericjs]] cheerpnet
 			c.channel->send(newBuf);
 			asm("}catch{");
 			close_connection(c);
+			errno=EWOULDBLOCK;
 			asm("return -1;}");
 			return len;
 		}
@@ -370,7 +403,10 @@ namespace [[cheerp::genericjs]] cheerpnet
 	int recvfrom(SocketFD fd, uint8_t* buf, int len, AddrInfo* addr)
 	{
 		if (!valid_fd(fd))
+		{
+			errno=EBADF;
 			return -1;
+		}
 		SocketData& s = sockets[fd];
 		if (s.portRef == nullptr)
 		{
@@ -378,7 +414,10 @@ namespace [[cheerp::genericjs]] cheerpnet
 			bind(fd, &addr);
 		}
 		if (s.inQueue.size() == 0)
-			return 0;
+		{
+			errno=EWOULDBLOCK;
+			return -1;
+		}
 		*addr = s.inQueue[0].addr;
 		client::Uint8Array& recvBuf = *s.inQueue[0].buf;
 		int bufLen = recvBuf.get_length()-4;
@@ -403,7 +442,10 @@ namespace [[cheerp::genericjs]] cheerpnet
 	int close(SocketFD fd)
 	{
 		if (!valid_fd(fd))
+		{
+			errno=EBADF;
 			return -1;
+		}
 		SocketData& s = sockets[fd];
 		if (s.portRef)
 			s.portRef->remove();
