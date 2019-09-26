@@ -4,7 +4,7 @@
 #include <cheerp/client.h>
 namespace [[cheerp::genericjs]] client
 {
-	struct FirebaseConfig
+	struct FirebaseConfig: public Object
 	{
 		void set_apiKey(const String&);
 		void set_authDomain(const String&);
@@ -15,17 +15,17 @@ namespace [[cheerp::genericjs]] client
 		void set_appId(const String&);
 	};
 	struct FirebaseReference;
-	struct FirebaseDatabase
+	struct FirebaseDatabase: public Object
 	{
 		FirebaseReference* ref(const client::String&);
 	};
-	struct Firebase
+	struct Firebase: public Object
 	{
 		void initializeApp(FirebaseConfig*);
 		FirebaseDatabase* database();
 	};
 	extern Firebase& firebase;
-	struct FirebaseReference
+	struct FirebaseReference: public Object
 	{
 		void on(const String&, EventListener*);
 		void off(const String&, EventListener*);
@@ -41,7 +41,7 @@ namespace [[cheerp::genericjs]] client
 		FirebaseReference* endAt(double);
 		String* get_key();
 	};
-	struct FirebaseSnapshot
+	struct FirebaseSnapshot: public Object
 	{
 		template<class T>
 		T* val();

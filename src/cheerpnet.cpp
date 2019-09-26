@@ -23,7 +23,7 @@ namespace [[cheerp::genericjs]] client
 	{
 		DataChannel* get_channel();
 	};
-	struct ConnectionData
+	struct ConnectionData: public Object
 	{
 		DataChannel* get_channel();
 	};
