@@ -26,10 +26,9 @@ INSTALL(FILES "include/firebase.h" DESTINATION "include/client/cheerp")
 ADD_EXECUTABLE(client ${CLIENTSOURCES})
 ADD_EXECUTABLE(server ${SERVERSOURCES})
 
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O0")
-SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O0")
-
 SET(CMAKE_EXE_LINKER_FLAGS "${CMAKE_CXX_FLAGS} -cheerp-linear-heap-size=128 -cheerp-avoid-wasm-traps -cheerp-pretty-code")
+
+SET(CMAKE_BUILD_TYPE Release)
 
 TARGET_LINK_LIBRARIES(client cheerpnet)
 TARGET_LINK_LIBRARIES(server cheerpnet)
